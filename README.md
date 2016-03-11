@@ -1,4 +1,4 @@
-# NLineTester
+# NLine Tester
 Scripts for testing NLines also called Newcamd in C# and Java
 
 Currently they don't work, so any help is appreciated
