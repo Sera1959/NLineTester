@@ -24,8 +24,10 @@ namespace ConsoleApplication
                 Socket.Receive(helloBytes);
                 
                 byte[] desKey16 = GetLoginKey(configKey, helloBytes);
-
-                var passwordMd5 = CustomMd5.crypt(password, "$1$abcdefgh$");
+                
+                //We use a custom MD5 that does the same as the UNIX Crypt
+                //Grabbed this custom MD5 from: https://gist.github.com/otac0n/1092558
+                var passwordMd5 = CustomMd5.crypt(password, "$1$abcdefgh$"); 
                 var passwordBytes = Encoding.ASCII.GetBytes(passwordMd5);
 
                 var networkBuffer = new byte[3 + Common.GetBytes(username).Length + 1 + passwordBytes.Length + 1];
