@@ -1,6 +1,8 @@
 # NLine tester scripts
 Scripts for testing NLines also called Newcamd in C# and Python
 
+With them you can program your own testing website/software and be sure that nobody is stealing your lines :)
+
 Code that helped me to do it:
 
 1- NFProxy v0.1.2: http://ftabeta.com/showthread.php?t=48943&p=278919&viewfull=1#post278919
@@ -17,4 +19,4 @@ and http://www.infosat.org/forum/viewtopic.php?id=13
 
 Check this repository for a Cline (CCcam) tester: https://github.com/DaggerES/CLineTester
 
-Please, share your code!
+Please, share your code!!!!
