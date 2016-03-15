@@ -1,6 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using ConsoleApplication.CustomMD5;
@@ -10,57 +11,86 @@ namespace ConsoleApplication
     public class NlineTester
     {
         private static readonly Socket Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        public void TestNline(string host, int port, string username, string password, byte[] configKey)
+        public void TestNline(string host, int port, string username, string password, string configKey)
         {
-            //Based on the OSCAM code (except the tripple des encription)
-            //Check also this documentation: https://3color.googlecode.com/svn/trunk/cardservproxy/etc/protocol.txt
-            
-            //It doesnt work :(
             try
             {
                 Socket.Connect(host, port);
 
                 var helloBytes = new byte[14]; //Receive the first 14 bytes
                 Socket.Receive(helloBytes);
-                
-                byte[] desKey16 = GetLoginKey(configKey, helloBytes);
-                
-                //We use a custom MD5 that does the same as the UNIX Crypt
-                //Grabbed this custom MD5 from: https://gist.github.com/otac0n/1092558
-                var passwordMd5 = CustomMd5.crypt(password, "$1$abcdefgh$"); 
-                var passwordBytes = Encoding.ASCII.GetBytes(passwordMd5);
 
-                var networkBuffer = new byte[3 + Common.GetBytes(username).Length + 1 + passwordBytes.Length + 1];
+                var configKeyBytes = ParseConfigKey(configKey);
+                byte[] loginKey = GetLoginKey(configKeyBytes, helloBytes);
 
-                networkBuffer[0] = 0xe0; //This is the login byte
-                networkBuffer[1] = (byte)((0 & 0xf0) | (((username.Length + 1) >> 8) & 0x0f));
-                networkBuffer[2] = (byte)(username.Length + 1 & 0xff);
+                //CAUTION! Md5 hash must be done as in UNIX Crypt() function.
+                //You can also use the CryptAPI dll (http://cryptapi.sourceforge.net/) and send "abcdefgh" as salt
+                //The one that I'm using I grabbed it from: https://gist.github.com/otac0n/1092558
+                var hashedPassword = Encoding.ASCII.GetBytes(UnixLikeMD5.crypt(password, "$1$abcdefgh$"));
 
-                Array.Copy(Common.GetBytes(username), 0, networkBuffer, 3, Common.GetBytes(username).Length);
-                Array.Copy(passwordBytes, 0, networkBuffer, Common.GetBytes(username).Length +4, passwordBytes.Length);
-                
-                networkBuffer = AddHeaderToBuffer(networkBuffer);
+                var loginMessage = new List<byte>();
+                Add10EmptyHeaderBytes(loginMessage);
 
-                Console.WriteLine("Data to encript: " + BitConverter.ToString(networkBuffer));
+                loginMessage.Add(0xE0); //This is the login byte
+                loginMessage.Add(0);
+                loginMessage.Add(50); //No idea what this is
 
-                var encryptedBuffer = EncriptData(networkBuffer, desKey16); //Encript with tripple DES in CBC with keysize of 128bits (16 bytes)
-                
-                encryptedBuffer = AddLengthHeader(encryptedBuffer);
-                
+                loginMessage.AddRange(Encoding.ASCII.GetBytes(username)); //Add username as bytes
+                loginMessage.Add(0); //Add a "0" as separator
+                loginMessage.AddRange(hashedPassword); //Add md5 hashed password
+                loginMessage.Add(0); //Add a "0" as separator
+
+                AddXorSumFooter(loginMessage);
+
+                Console.WriteLine("Data to encript: " + BitConverter.ToString(loginMessage.ToArray()));
+
+                var iv = Get8BytesRandomIv();
+
+                var encryptedBuffer = EncriptData(loginMessage, loginKey, iv);
+
+                encryptedBuffer.AddRange(iv); //Add initialization vector to the bottom
+                encryptedBuffer = AddLengthHeader(encryptedBuffer); //Add 2 bytes header
+
                 try
                 {
-                    Socket.Send(encryptedBuffer);
+                    Socket.Send(encryptedBuffer.ToArray()); //Send the encripted data!
 
-                    byte[] receivedBuffer = new byte[999];
-                    var recvC = Socket.Receive(receivedBuffer);
-                    while (recvC == 0)
+                    byte[] receivedBuffer = new byte[100];
+                    var receiveCount = Socket.Receive(receivedBuffer);
+
+                    if (receiveCount == 0)
                     {
-                        recvC = Socket.Receive(receivedBuffer);
+                        Console.WriteLine("Failed to receive answer, check 14 byte config key");
+                    }
+                    else
+                    {
+                        //Proceed to decript the message...
+                        var receivedData = receivedBuffer.ToList();
+
+                        //Remove trailing '0' from buffer
+                        receivedData.RemoveRange(receiveCount, receivedData.Count - receiveCount);
+
+                        //Remove first 2 sum bytes
+                        receivedData.RemoveAt(0);
+                        receivedData.RemoveAt(0);
+
+                        //Get the 8 bytes IV
+                        iv = receivedData.GetRange(receivedData.Count - 8, 8).ToArray();
+
+                        //Decrypt using TripleDES
+                        receivedData = DecriptData(receivedData.ToArray(), loginKey, iv);
+
+                        //Remove the 10 '0' header bytes
+                        receivedData.RemoveRange(0, 10);
+
+                        //225 (0xE1) = ACK (acknowledge, all ok)
+                        //226 (0xE2) = NACK (bad data)
+                        Console.WriteLine(receivedData.First() == 0xE1 ? "SUCCESS!" : "Wrong username or password!");
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Failed to connect. Details: " + e.Message);
+                    Console.WriteLine("Failed to send the data. Details: " + e.Message);
                 }
             }
             catch (Exception e)
@@ -70,126 +100,115 @@ namespace ConsoleApplication
             Socket.Close();
         }
 
-        private static byte[] AddLengthHeader(byte[] encryptedBuffer)
+        private static byte[] ParseConfigKey(string desKey)
         {
-            var newencryptedBuffer = new byte[encryptedBuffer.Length + 2];
-            Array.Copy(encryptedBuffer, 0, newencryptedBuffer, 2, encryptedBuffer.Length);
-            newencryptedBuffer[0] = (byte) (encryptedBuffer.Length >> 8);
-            newencryptedBuffer[1] = (byte) (encryptedBuffer.Length & 0xff);
-
-            return newencryptedBuffer;
-        }
-
-        private byte[] AddHeaderToBuffer(byte[] networkBuffer)
-        {
-            var newByte = new byte[networkBuffer.Length + 12];
-            Array.Copy(networkBuffer, 0, newByte, 12, networkBuffer.Length);
-
-            return newByte;
-        }
-        
-        private static byte[] EncriptData(byte[] data, byte[] desKey16)
-        {
-            //This does a triple DES encription. I had to do it with reflection
-            //because otherwise It detects that the Key is not safe
-
-            TripleDES desCrypto = new TripleDESCryptoServiceProvider
+            //This method parse the config key from a string and puts it as an array of bytes
+            desKey = desKey.Replace(",", string.Empty);
+            desKey = desKey.Replace(" ", string.Empty);
+            byte[] byteDesKey = new byte[desKey.Length / 2];
+            int arrayCounter = 0;
+            for (int i = 0; i < byteDesKey.Length; i++)
             {
-                KeySize = 128,
-                Mode = CipherMode.CBC
+                byteDesKey[i] = Convert.ToByte(desKey.Substring(arrayCounter, 2), 16);
+                arrayCounter = arrayCounter + 2;
+            }
+            return byteDesKey;
+        }
+
+        private static byte[] Get8BytesRandomIv()
+        {
+            //Get a random initialization vector for the TripleDES
+            byte[] iv = new byte[8];
+            new Random().NextBytes(iv);
+            return iv;
+        }
+
+        private static void Add10EmptyHeaderBytes(List<byte> networkBuffer)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                networkBuffer.Add(0); //Add 10 '0' header bytes
+            }
+        }
+
+        private static void AddXorSumFooter(List<byte> networkBuffer)
+        {
+            byte xorSum = 0;
+            networkBuffer.ForEach(b => { xorSum = (byte) (xorSum ^ b); });
+            networkBuffer.Add(xorSum);
+        }
+
+        private static List<byte> AddLengthHeader(List<byte> encryptedBuffer)
+        {
+            var newEncriptedBuff = new List<byte>
+            {
+                (byte) (encryptedBuffer.Count >> 8),
+                (byte) (encryptedBuffer.Count & 0xff)
             };
+            newEncriptedBuff.AddRange(encryptedBuffer);
 
-            MethodInfo mi = desCrypto.GetType().GetMethod("_NewEncryptor", BindingFlags.NonPublic | BindingFlags.Instance);
-            object[] par = { desKey16, desCrypto.Mode, desCrypto.IV, desCrypto.FeedbackSize, 0};
-            ICryptoTransform transform = mi.Invoke(desCrypto, par) as ICryptoTransform;
-
-            var encryptedBuffer = transform?.TransformFinalBlock(data, 0, data.Length);
+            encryptedBuffer = newEncriptedBuff;
             return encryptedBuffer;
+        }
+
+        private static List<byte> DecriptData(IEnumerable<byte> data, byte[] loginKey, byte[] iv)
+        {
+            TripleDES tripleDes = TripleDES.Create();
+            tripleDes.Mode = CipherMode.CBC;
+            tripleDes.Padding = PaddingMode.Zeros;
+            tripleDes.IV = iv;
+            tripleDes.Key = loginKey;
+
+            ICryptoTransform cryptoTransform = tripleDes.CreateDecryptor();
+            return cryptoTransform.TransformFinalBlock(data.ToArray(), 0, data.Count()).ToList();
+        }
+
+        private static List<byte> EncriptData(IEnumerable<byte> data, byte[] loginKey, byte[] iv)
+        {
+            TripleDES tripleDes = TripleDES.Create();
+            tripleDes.Mode = CipherMode.CBC;
+            tripleDes.Padding = PaddingMode.Zeros;
+            tripleDes.IV = iv;
+            tripleDes.Key = loginKey;
+
+            ICryptoTransform cryptoTransform = tripleDes.CreateEncryptor();
+            return cryptoTransform.TransformFinalBlock(data.ToArray(), 0, data.Count()).ToList();
         }
 
         private static byte[] GetLoginKey(byte[] configKey, byte[] helloBytes)
         {
             //The login key is a 16 byte key made by xor of hello bytes and config key
-        
             byte[] xoredKey = new byte[14];
-            for (int i = 0; i < 14; i++) xoredKey[i] = (byte)(configKey[i % 14] ^ helloBytes[i]);
-            
-            var loginKey = new byte[16];
-            loginKey[0] = (byte)(xoredKey[0] & 0xfe);
-            loginKey[1] = (byte)(((xoredKey[0] << 7) | (xoredKey[1] >> 1)) & 0xfe);
-            loginKey[2] = (byte)(((xoredKey[1] << 6) | (xoredKey[2] >> 2)) & 0xfe);
-            loginKey[3] = (byte)(((xoredKey[2] << 5) | (xoredKey[3] >> 3)) & 0xfe);
-            loginKey[4] = (byte)(((xoredKey[3] << 4) | (xoredKey[4] >> 4)) & 0xfe);
-            loginKey[5] = (byte)(((xoredKey[4] << 3) | (xoredKey[5] >> 5)) & 0xfe);
-            loginKey[6] = (byte)(((xoredKey[5] << 2) | (xoredKey[6] >> 6)) & 0xfe);
-            loginKey[7] = (byte)(xoredKey[6] << 1);
-            loginKey[8] = (byte)(xoredKey[7] & 0xfe);
-            loginKey[9] = (byte)(((xoredKey[7] << 7) | (xoredKey[8] >> 1)) & 0xfe);
-            loginKey[10] = (byte)(((xoredKey[8] << 6) | (xoredKey[9] >> 2)) & 0xfe);
-            loginKey[11] = (byte)(((xoredKey[9] << 5) | (xoredKey[10] >> 3)) & 0xfe);
-            loginKey[12] = (byte)(((xoredKey[10] << 4) | (xoredKey[11] >> 4)) & 0xfe);
-            loginKey[13] = (byte)(((xoredKey[11] << 3) | (xoredKey[12] >> 5)) & 0xfe);
-            loginKey[14] = (byte)(((xoredKey[12] << 2) | (xoredKey[13] >> 6)) & 0xfe);
-            loginKey[15] = (byte)(xoredKey[13] << 1);
+            for (int i = 0; i < 14; i++) xoredKey[i] = (byte)(configKey[i] ^ helloBytes[i]);
 
-
-            for (var i = 0; i < 16; i++)
-            {
-                var parity = 1;
-                for (var j = 1; j < 8; j++)
-                    if (((loginKey[i] >> j) & 0x1) == 1)
-                        parity = ~parity & 0x01;
-                loginKey[i] |= (byte)parity;
-            }
-
-            byte[] array1;
-            byte[] array2;
-
-            Split<byte>(loginKey, 8, out array1, out array2);
-            doPC1(array1);
-            doPC1(array2);
-
-            array1.CopyTo(loginKey, 0);
-            array2.CopyTo(loginKey, array1.Length);
-
-            return loginKey;
-        }
-
-        public static void Split<T>(T[] source, int index, out T[] first, out T[] last)
-        {
-            int len2 = source.Length - index;
-            first = new T[index];
-            last = new T[len2];
-            Array.Copy(source, 0, first, 0, index);
-            Array.Copy(source, index, last, 0, len2);
-        }
-
-        private static void doPC1(byte[] data)
-        {
-            byte[,] PC1 = new byte[7, 8]
-            {
-                { 57, 49, 41, 33, 25, 17,  9, 1 },
-                { 58, 50, 42, 34, 26, 18, 10, 2 },
-                { 59, 51, 43, 35, 27, 19, 11, 3 },
-                { 60, 52, 44, 36, 63, 55, 47,39 },
-                { 31, 23, 15,  7, 62, 54, 46,38 },
-                { 30, 22, 14,  6, 61, 53, 45,37 },
-                { 29, 21, 13,  5, 28, 20, 12, 4 }
+            //Do the key spread from 14 bytes to 16 bytes as tripleDES needs
+            byte[] loginKey = {
+                (byte)(xoredKey[0] & 0xfe),
+                (byte)((xoredKey[0] << 7 | xoredKey[1] >> 1) & 0xfe),
+                (byte)((xoredKey[1] << 6 | xoredKey[2] >> 2) & 0xfe),
+                (byte)((xoredKey[2] << 5 | xoredKey[3] >> 3) & 0xfe),
+                (byte)((xoredKey[3] << 4 | xoredKey[4] >> 4) & 0xfe),
+                (byte)((xoredKey[4] << 3 | xoredKey[5] >> 5) & 0xfe),
+                (byte)((xoredKey[5] << 2 | xoredKey[6] >> 6) & 0xfe),
+                (byte)(xoredKey[6] << 1), (byte)(xoredKey[7] & 0xfe),
+                (byte)((xoredKey[7] << 7 | xoredKey[8] >> 1) & 0xfe),
+                (byte)((xoredKey[8] << 6 | xoredKey[9] >> 2) & 0xfe),
+                (byte)((xoredKey[9] << 5 | xoredKey[10] >> 3) & 0xfe),
+                (byte)((xoredKey[10] << 4 | xoredKey[11] >> 4) & 0xfe),
+                (byte)((xoredKey[11] << 3 | xoredKey[12] >> 5) & 0xfe),
+                (byte)((xoredKey[12] << 2 | xoredKey[13] >> 6) & 0xfe),
+                (byte)(xoredKey[13] << 1)
             };
 
-            byte[] buf = new byte[8];
-            byte i, j;
-
-            for (j = 0; j < 7; j++)
+            //Here we adjust the parity?
+            for (int i = 0; i < loginKey.Length; i++)
             {
-                for (i = 0; i < 8; i++)
-                {
-                    byte lookup = PC1[j,i];
-                    buf[j] |= (byte)(((data[(lookup >> 3)] >> (8 - (lookup & 7))) & 1) << (7 - i));
-                }
+                loginKey[i] = (byte)(loginKey[i] & 0xfe |
+                    (loginKey[i] >> 1 ^ loginKey[i] >> 2 ^ loginKey[i] >> 3 ^ loginKey[i] >> 4 ^
+                    loginKey[i] >> 5 ^ loginKey[i] >> 6 ^ loginKey[i] >> 7 ^ 1) & 1);
             }
 
-            Array.Copy(buf, data, buf.Length);
+            return loginKey;
         }
     }
 }
