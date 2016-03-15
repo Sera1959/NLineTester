@@ -1,10 +1,10 @@
 # NLine tester scripts
-Scripts for testing NLines also called Newcamd in C#
+Scripts for testing NLines also called Newcamd in C# and Python
 
 Code that helped me to do it:
 
 1- NFProxy v0.1.2: http://ftabeta.com/showthread.php?t=48943&p=278919&viewfull=1#post278919
-The code of this guy is obfuscated but with de4dot you can see what's going on inside ;)
+The code of this program is obfuscated but with de4dot you can see what's going on inside ;)
 
 2- Oscam: https://github.com/gfto/oscam/blob/master/module-newcamd.c
 
