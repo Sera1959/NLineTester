@@ -1,9 +1,10 @@
 # NLine tester scripts
-Scripts for testing NLines also called Newcamd in C# and Python
+Scripts for testing that a NLine works or not. Currently in C# and Python.
 
+I made them as some people host testing cline websites and reject to share their source code.
 With them you can program your own testing website/software and be sure that nobody is stealing your lines :)
 
-Code that helped me to do it:
+Links that helped me to do it:
 
 1- NFProxy v0.1.2: http://ftabeta.com/showthread.php?t=48943&p=278919&viewfull=1#post278919
 The code of this program is obfuscated but with de4dot you can see what's going on inside ;)
