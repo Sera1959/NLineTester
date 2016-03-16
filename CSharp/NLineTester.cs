@@ -40,7 +40,7 @@ namespace ConsoleApplication
                 loginMessage.AddRange(hashedPassword); //Add md5 hashed password
                 loginMessage.Add(0); //Add a "0" as separator
 
-                AddXorSumFooter(loginMessage);
+                AddChecksumFooter(loginMessage);
 
                 Console.WriteLine("Data to encript: " + BitConverter.ToString(loginMessage.ToArray()));
 
@@ -132,7 +132,7 @@ namespace ConsoleApplication
             }
         }
 
-        private static void AddXorSumFooter(List<byte> networkBuffer)
+        private static void AddChecksumFooter(List<byte> networkBuffer)
         {
             byte xorSum = 0;
             networkBuffer.ForEach(b => { xorSum = (byte) (xorSum ^ b); });
