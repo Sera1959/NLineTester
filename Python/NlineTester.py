@@ -47,7 +47,7 @@ def TestNline(nline, configKey):
         loginMessage = loginMessage + array.array("B", passwordBytes).tolist() #Add md5 hashed password
         loginMessage.append(0); #Add a "0" as separator
 
-        __AddXorSumFooter(loginMessage) #Add the sum to the bottom
+        __AddFooterChecksum(loginMessage) #Add the checksum to the bottom
 
         iv = bytearray(random.getrandbits(8) for i in range(8)) # get a random IV    
 
@@ -131,7 +131,7 @@ def __Add10EmptyHeaderBytes(data):
     for i in range(0, 10):
         data.append(0)
 
-def __AddXorSumFooter(data):
+def __AddFooterChecksum(data):
     xorSum = 0;
     for i in range(0, len(data)):
         xorSum = (xorSum ^ data[i]) & 0xFF;
