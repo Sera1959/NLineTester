@@ -112,6 +112,7 @@ namespace ConsoleApplication
             int arrayCounter = 0;
             for (int i = 0; i < byteDesKey.Length; i++)
             {
+                //Each number must be parsed as a byte in base 16
                 byteDesKey[i] = Convert.ToByte(desKey.Substring(arrayCounter, 2), 16);
                 arrayCounter = arrayCounter + 2;
             }
