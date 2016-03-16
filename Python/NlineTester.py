@@ -147,7 +147,7 @@ def __ParseConfigKey(configKey):
     byteDesKey = bytearray(len(configKey)/2)
     arrayCounter = 0;
     for i in range(0, len(configKey)/2):
-        #Encode the config key in base 16
+        #Encode the config key in base 16 as int because python does not have a byte type
         byteDesKey[i] = int(configKey[arrayCounter:arrayCounter+2].encode(),16)
         arrayCounter = arrayCounter + 2
 
