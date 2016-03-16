@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*- 
 #Created by Dagger -- https://github.com/DaggerES
 
-def TestNline(nline, configKey):
+def TestNline(nline):
     import socket, re, sys, array, time, select, customMD5, random, pyDes
 
     returnValue = False
-    regExpr = re.compile('[N]:\s*(\S+)+\s+(\d*)\s+(\S+)\s+([\w.-]+)')
+    regExpr = re.compile('[N]:\s*(\S+)+\s+(\d*)\s+(\S+)\s+([\w.-]+)((?:\s(?:\d\d)){14})')
     match = regExpr.search(nline)
 
     if match is None:
@@ -19,7 +19,7 @@ def TestNline(nline, configKey):
     port = int(match.group(2))
     username = match.group(3)
     password = match.group(4)
-    configKey = __ParseConfigKey(configKey)
+    configKey = __ParseConfigKey(match.group(5))
     
     try:
         ip = socket.gethostbyname(host)
@@ -147,6 +147,7 @@ def __ParseConfigKey(configKey):
     byteDesKey = bytearray(len(configKey)/2)
     arrayCounter = 0;
     for i in range(0, len(configKey)/2):
+        #Encode the config key in base 16
         byteDesKey[i] = int(configKey[arrayCounter:arrayCounter+2].encode(),16)
         arrayCounter = arrayCounter + 2
 
