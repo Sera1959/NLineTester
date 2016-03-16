@@ -1,3 +1,5 @@
+//Created by Dagger -- https://github.com/DaggerES
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
