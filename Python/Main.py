@@ -1,5 +1,6 @@
- #!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*- 
+#Created by Dagger -- https://github.com/DaggerES
    
 if __name__ == "__main__":
     import NlineTester
