@@ -20,8 +20,6 @@ namespace ConsoleApplication
                 var helloBytes = new byte[14]; //Receive the first 14 bytes
                 Socket.Receive(helloBytes);
 
-                helloBytes = new byte[14] {01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14};
-
                 var configKeyBytes = ParseConfigKey(configKey);
                 byte[] loginKey = GetLoginKey(configKeyBytes, helloBytes);
 
@@ -47,7 +45,6 @@ namespace ConsoleApplication
                 Console.WriteLine("Data to encript: " + BitConverter.ToString(loginMessage.ToArray()));
 
                 var iv = Get8BytesRandomIv();
-                iv = new byte[] {01, 02, 03, 04, 05, 06, 07, 8};
 
                 var encryptedBuffer = EncriptData(loginMessage, loginKey, iv);
 
