@@ -1,8 +1,8 @@
 # NLine tester scripts
 Scripts for testing that a NLine works or not. Currently in C# and Python.
 
-I made them as some people host testing cline websites and reject to share their source code.
-With this scripts you can program your own testing website/software and be sure that nobody is stealing your lines :)
+I made them as some people host line-testing websites and reject to share their source code.
+With those scripts you can program your own testing website/software and be sure that nobody steals your lines :)
 
 Links that helped me to do it:
 
