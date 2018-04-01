@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://paypal.me/gavazquez"><img src="https://img.shields.io/badge/paypal-donate-yellow.svg" alt="PayPal"/></a>
+</p>
+
+---
+
 # NLine tester scripts
 *Also called Nline, Ncamd, Newcamd and NewCam*
 
@@ -25,3 +31,10 @@ The code of this program is obfuscated but with de4dot you can see what's going 
 and http://www.infosat.org/forum/viewtopic.php?id=13
 
 5- This documentation (although is outdated): https://3color.googlecode.com/svn/trunk/cardservproxy/etc/protocol.txt
+
+---
+
+<p align="center">
+  <a href="mailto:gavazquez@gmail.com"><img src="https://img.shields.io/badge/email-gavazquez@gmail.com-blue.svg?style=flat" alt="Email: gavazquez@gmail.com" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/gavazquez/NLineTester.svg" alt="License" /></a>
+</p>
