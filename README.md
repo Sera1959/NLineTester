@@ -12,7 +12,7 @@ Scripts for testing that a NLine works or not. Currently in C# and Python.
 I made them as some people host line-testing websites and reject to share their source code.
 With those scripts you can program your own testing website/software and be sure that **nobody steals your lines** :)
 
-#### Check this repository for a Cline (CCcam) tester: https://github.com/DaggerES/CLineTester
+#### Check this repository for a Cline (CCcam) tester: https://github.com/gavazquez/CLineTester
 
 Please, share your code!!!!
 
